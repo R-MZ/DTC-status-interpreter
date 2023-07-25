@@ -4,6 +4,8 @@
 #define FALSE                               0x00
 #define TRUE                                0x01
 #define DTC_STATUS_SIZE                     0x02
+/* Buffer is 4 bytes long to allow us to check the lenght of the input */
+#define USER_INPUT_BUFFER_SIZE              0x04
 #define NUMBER_OF_SHIFTS                    0x08
 
 #define IS_IN_ASCII_NUMERICAL_RANGE(n)      ( ( (n >= 0x30) && (n <= 0x39) ) ? TRUE : FALSE )
@@ -57,7 +59,7 @@ char InputLenghtCheck(char * raw_user_input)
     
     else
     {
-        printf("NRC 13: Incorrect message lenght or invalid format :v\n");
+        printf("NRC 13: Incorrect message lenght or invalid format :v\n\n");
     }
 
     return ret_val;
@@ -73,7 +75,7 @@ char InputRangeCheck(char * raw_user_input)
 
     if(FALSE == ret_val)
     {
-        printf("NRC 31: Request Out Of Range xd\n");
+        printf("NRC 31: Request Out Of Range xd\n\n");
     }
 
     return ret_val;
@@ -86,7 +88,7 @@ unsigned char ASCIIToDecimal(char * dtc_status)
     char power = 1;
 
     /* Byte 0 from dtc_status is the most significant nibble, thus, in order to convert it to decimal we have to multiply it by 16^1 */
-    for(char i = 0; i < DTC_STATUS_SIZE; ++i)
+    for(unsigned char i = 0; i < DTC_STATUS_SIZE; ++i)
     {
         if( IS_IN_ASCII_NUMERICAL_RANGE(dtc_status[i]) )
         {
@@ -164,12 +166,14 @@ void OutputToUserManager(char bit_position, char current_bit_status)
 
 int main()
 {
-    /* Each character that the user inputs equals one byte because it comes in ASCII code. Ex: "1003" is 4 bytes long (+ 1 because of the implicit use of eol character '\0') */
-    char raw_user_input[10] = {0};
+    /* Each character that the user inputs equals one byte because it comes in ASCII. Ex: "1003" is 4 bytes long (+ 1 because of the implicit use of null terminator '\0') */
+    char raw_user_input[USER_INPUT_BUFFER_SIZE] = {0};
     char user_input_status = FALSE;
     
     printf("\nPlease enter the DTC status value in hexadecimal: ");
-    scanf("%s", &raw_user_input);
+    
+    /* Store only the first 3 characters */
+    scanf("%3s", raw_user_input);
 
     user_input_status = UserInputPreconditionsCheck(raw_user_input);
     if(FALSE != user_input_status)
