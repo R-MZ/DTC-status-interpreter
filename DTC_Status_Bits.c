@@ -1,27 +1,32 @@
 #include <stdio.h>
 #include <math.h>
 
-#define FALSE                               0x00
-#define TRUE                                0x01
-#define DTC_STATUS_SIZE                     0x02
+#define FALSE                                      0x00
+#define TRUE                                       0x01
+
+/* With this mask we are looking for the status of bits 1, 2 and 3 (Test failed this operation cycle, Pending DTC and Confirmed DTC respectively) */
+#define DTC_PLAUSIBILITY_MASK                      0x0E
+#define TEST_FAILED_THIS_OPERATION_CYCLE_ACTIVE    0x02
+
 /* Buffer is 4 bytes long to allow us to check the lenght of the input */
-#define USER_INPUT_BUFFER_SIZE              0x04
-#define NUMBER_OF_SHIFTS                    0x08
+#define USER_INPUT_BUFFER_SIZE                     0x04
+#define NUMBER_OF_SHIFTS                           0x08
+#define DTC_STATUS_SIZE                            0x02
 
-#define IS_IN_ASCII_NUMERICAL_RANGE(n)      ( ( (n >= 0x30) && (n <= 0x39) ) ? TRUE : FALSE )
-#define IS_IN_ASCII_UPPERCASE_HEX_RANGE(n)  ( ( (n >= 0x41) && (n <= 0x46) ) ? TRUE : FALSE )
-#define IS_IN_ASCII_LOWERCASE_HEX_RANGE(n)  ( ( (n >= 0x61) && (n <= 0x66) ) ? TRUE : FALSE )
+#define IS_IN_ASCII_NUMERICAL_RANGE(n)             ( ( (n >= 0x30) && (n <= 0x39) ) ? TRUE : FALSE )
+#define IS_IN_ASCII_UPPERCASE_HEX_RANGE(n)         ( ( (n >= 0x41) && (n <= 0x46) ) ? TRUE : FALSE )
+#define IS_IN_ASCII_LOWERCASE_HEX_RANGE(n)         ( ( (n >= 0x61) && (n <= 0x66) ) ? TRUE : FALSE )
 
-#define ASCII_NUMERICAL_TO_DECIMAL_CONSTANT 0x30
-#define ASCII_UPPERCASE_TO_DECIMAL_CONSTANT 0x37
-#define ASCII_LOWERCASE_TO_DECIMAL_CONSTANT 0x57
+#define ASCII_NUMERICAL_TO_DECIMAL_CONSTANT        0x30
+#define ASCII_UPPERCASE_TO_DECIMAL_CONSTANT        0x37
+#define ASCII_LOWERCASE_TO_DECIMAL_CONSTANT        0x57
 
 char UserInputPreconditionsCheck(char * raw_user_input);
 char InputLenghtCheck(char * raw_user_input);
 char InputRangeCheck(char * raw_user_input);
 unsigned char ASCIIToDecimal(char * input_value);
 void DTCStatusInterpreter(unsigned char dtc_status);
-void OutputToUserManager(char bit_position, char current_bit_status);
+void OutputToUserManager(unsigned char dtc_status, char bit_position, char current_bit_status);
 
 /* Returns TRUE if user input is 2 bytes long and in a valid hexadecimal range (0-9 or A-Z or a-z) */
 char UserInputPreconditionsCheck(char * raw_user_input)
@@ -117,47 +122,56 @@ void DTCStatusInterpreter(unsigned char dtc_status)
     for(char current_shift = 0; current_shift < NUMBER_OF_SHIFTS; ++current_shift)
     {
         dtc_lsb_status = ( (dtc_status >> current_shift) & TRUE);
-        OutputToUserManager(current_shift, dtc_lsb_status);
+        OutputToUserManager(dtc_status, current_shift, dtc_lsb_status);
     }
 }
 
-void OutputToUserManager(char bit_position, char current_bit_status)
+void OutputToUserManager(unsigned char dtc_status, char bit_position, char current_bit_status)
 {
     static char first_run_flag = FALSE;
 
-    /* Print the header only in the first run */   
+    /* Print the plausibility and header only in the first call */   
     if(FALSE == first_run_flag)
     {
-        printf("\n Response bit | Bit position |                 Status\n");
-        printf(" -------------|--------------|----------------------------------------\n");
+        if((dtc_status & DTC_PLAUSIBILITY_MASK) == TEST_FAILED_THIS_OPERATION_CYCLE_ACTIVE)
+        {
+            printf("\nDTC status not plausible!!");
+        }
+        else
+        {
+            printf("\nDTC status is plausible");
+        }
+
+        printf("\nResponse bit | Bit position |                 Status\n");
+        printf("-------------|--------------|----------------------------------------\n");
         first_run_flag = TRUE;
     }
 
     switch(bit_position)
     {
         case 0:
-            printf("       %d      |      %d       | Test failed\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Test failed\n", current_bit_status, bit_position);
             break;
         case 1:
-            printf("       %d      |      %d       | Test failed this operation cycle\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Test failed this operation cycle\n", current_bit_status, bit_position);
             break;
         case 2:
-            printf("       %d      |      %d       | Pending DTC\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Pending DTC\n", current_bit_status, bit_position);
             break;
         case 3:
-            printf("       %d      |      %d       | Confirmed DTC\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Confirmed DTC\n", current_bit_status, bit_position);
             break;
         case 4:
-            printf("       %d      |      %d       | Test not completed since last clear\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Test not completed since last clear\n", current_bit_status, bit_position);
             break;
         case 5:
-            printf("       %d      |      %d       | Test failed since last clear\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Test failed since last clear\n", current_bit_status, bit_position);
             break;
         case 6:
-            printf("       %d      |      %d       | Test not completed this operation cycle\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Test not completed this operation cycle\n", current_bit_status, bit_position);
             break;
         case 7:
-            printf("       %d      |      %d       | Warning indicator requested\n\n", current_bit_status, bit_position);
+            printf("      %d      |      %d       | Warning indicator requested\n\n", current_bit_status, bit_position);
             break;
         default:
             printf("Impossible my fren");
